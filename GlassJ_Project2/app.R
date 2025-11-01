@@ -10,27 +10,17 @@ library(shiny)
 library(shinyalert)
 library(tidyverse)
 library(bslib)
+library(DT)
 
-df <- read.csv("exoplanetsdata.csv", header=TRUE) |>
-  mutate(across(c(pl_name, hostname, sy_snum, sy_pnum, discoverymethod, disc_year, disc_facility), factor))
-
-# Which columns do I want to keep? I don't think I need all 85 columns. 
 # Details of the columns:
 # https://exoplanetarchive.ipac.caltech.edu/docs/API_PS_columns.html
 
 # To start: I just copied text in directly from our last homework assignemnt, and I can tweak from here.
 
-# Number of stars: sy_num
-# Number of planets: sy_pnum
-# Number of moons: sy_mnum
-# YES OR NO: Planet orbits binary star system? : cb_flag
-
-# Planet discovery method: discoverymethod
-# Discovery year: disc_year
-
+# The helpers.R file contains variable listings.
 source("helpers.R")
 
-# Define UI
+# Define the UI
 ui <- fluidPage(
   h2("Exploration of Exoplanets"),
   sidebarLayout(
@@ -57,25 +47,80 @@ ui <- fluidPage(
       
       h2("Select a Sample Size"),
       sliderInput("corr_n", "", value=20, min=20, max=500),
-      actionButton("corr_sample","Get a Sample!")
+      actionButton("data_subset_action","Generate Subset")
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("Info", mainPanel(
-          h1("This is the Main Panel"),
-          "I can put whatever I want",
-          br(),
-          h2("To add later.")
-        )),
-        tabPanel("Stars"),
-        tabPanel("Planets")
+        tabPanel("About", 
+                 # Describe the purpose of the app
+                 # Discuss the data, its source; provide a link to the main page
+                 # The purpose of the side bar and each tab
+                 # Include a related picture to the data
+                 mainPanel(
+                   h1("This is the Main Panel"),
+                   "I can put whatever I want",
+                   br(),
+                   h2("To add later.")
+                 )
+        ),
+        
+        tabPanel("Data Download",
+                 
+                 # Display data using DT::dataTableOutput() with DT::renderDataTable()
+                 # Data should be subsetted when the user selects a subset in sidebar and presses the Go button
+                 # Save the subsetted* data as a file, use a download() button
+                 
+                 mainPanel(
+                   h2("Raw Data Subset"),
+                   p("Use the input fields in the sidebar to the left to produce a subset of the data you wish to explore."),
+                   p("This tab will allow you to visualize the raw data based on the subsetting indicated, and to download a .CSV file."),
+                   DTOutput("downloadTable", width="50%"),
+                   downloadButton("rawdataDownload", "Download Subset")
+                 )
+        ),
+        
+        tabPanel("Data Exploration",
+                 # The numerical and graphical summaries from 'Prepare for your App'
+                 #      - One- and Two- way contingency tables
+                 #      - Numerical summaries (means, medians, sd's) for quantitative variables
+                 #            of levels of categorical variables.
+                 #      - At least 6 plots -- 
+                 #            * Four should be multivariate via type of graph. Use grouping, color, etc
+                 #            * All plots should have nice labels and axes
+                 #            * Some kind of faceting used somewhere in at least one
+                 #            * One plot not covered in class --- a heatmap? I like heatmaps.
+                 #
+                 # The data to be shown here is based on the subsetting that is done.
+                 # User should be able to choose to display the categorical data summaries or the
+                 #    numeric variable summaries. Display the graphs and the numbers separately
+                 #    or together. 
+                 # Create the types of summaries and graphs - one- and two-way contingency tables,
+                 #    bar charts, summary stats across categorical variables, etc.
+                 # User should be able to choose which variables are summarized or plotted
+                 # Account for errors that may pop up in the widget. Use loading spinners for plots
+                 #    that may take a while to load.
+                 mainPanel(
+                   h1("Here is for data exploration.")
+                 )
+        )
       )
     )
   )
 )
 
 
-server <- function(input, output, session) { }
+server <- function(input, output, session) { 
+  out <- reactiveVal(value=NULL)
+  observeEvent(input$data_subset_action, {
+    out(fullData)
+  })
+  output$downloadTable <- renderDT(out())
+  # Pressing the DOWNLOAD SUBSET button will download the subset data table contents to a file.
+  output$rawdataDownload <- downloadHandler(
+    filename = function() { paste("exoplanet_", Sys.Date(), ".csv", sep="") },
+    content = function(file) { write.csv(out(), file) }
+  )
+}
 
 # Run the application 
 shinyApp(ui = ui, server = server)
