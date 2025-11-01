@@ -1,7 +1,7 @@
 # Full exoplanet data set, using only the defined Numeric and Character variables below.
 fullData <- read.csv("exoplanetsdata.csv", header=TRUE) |>
-  mutate(across(c(pl_name, hostname, sy_snum, sy_pnum, discoverymethod, disc_year, disc_facility), factor)) |>
-  select(all_of(numeric_vars), all_of(char_vars))
+  mutate(across(c(pl_name, hostname, disc_facility), factor)) |>
+  select(all_of(char_vars), all_of(numeric_vars))
 
 numeric_vars <- c(
   "facility_type",    # 

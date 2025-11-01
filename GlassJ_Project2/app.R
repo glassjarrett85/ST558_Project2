@@ -20,33 +20,94 @@ library(DT)
 # The helpers.R file contains variable listings.
 source("helpers.R")
 
+# This theme would need some work.
+dark_space_theme <- bs_theme(
+  # Set the dark mode background (a near-black dark blue)
+  bg = "#151525", 
+  # Set the light foreground text color
+  fg = "#F0F0FF", 
+  # Set an accent color for buttons/links (e.g., a nebula blue)
+  primary = "#327ECF", 
+  base_font = font_google("Space Mono") # Optional: Use a space-themed font
+)
+
 # Define the UI
 ui <- fluidPage(
-  h2("Exploration of Exoplanets"),
+  # theme=dark_space_theme,
+  title="Exoplanet Astronomy",
+  titlePanel("Exploration of Exoplanets - Check it out"),
   sidebarLayout(
     sidebarPanel(
-      h2("Explore Exoplanets"),
+      width=3,
+      tags$head(
+        tags$style(HTML(".well {font-size: 12px;}"))
+      ),
+      h3("Subset for Exoplanets"),
+      hr(),
+      # A slider to show bounds of years of discovery.
+      sliderInput(inputId="subset_discYear", 
+                  label="Years of Discovery",
+                  # Min and Max values taken directly from the NASA dataset.
+                  min=1992, 
+                  max=2023,
+                  value=c(1992, 2023),
+                  sep=""
+      ),
       
-      selectInput("corr_x", "First Numeric Variable", numeric_vars[-1]),
-      selectInput("corr_y", "Second Numeric Variable", numeric_vars),
+      # In the habitability zone, based on Insolation Flux
+      # Using Kopparapu et al. (2013/2014) for OPTIMISTIC HABITABLE ZONES.
+      # (`pl_insol` between 0.32 and 1.77)
+      radioButtons(inputId="subset_habitable",
+                   label="Within the Habitable Zone",
+                   choices=c("All", "Yes", "No"),
+                   selected="All",
+                   inline=TRUE
+      ),
       
-      h2("Choose a subset of the data:"),
+      # Size of the planet - based on `pl_bmasse`
+      selectInput(inputId="subset_planetSize",
+                  label="NASA/PHL Planet Type",
+                  choices=c("All", 
+                            "Terrestrial",  # m < 2M
+                            "Super-Earth",  # 2M <= m < 10M
+                            "Neptunian",    # 10M <= m < 50M
+                            "Jovian"),      # 50M <= m
+                  selected="All"
+      ),
       
-      # Options to select for Household Language
-      radioButtons("hhl_corr","Household Language", choiceNames=c("All","English only","Spanish", "Other"),
-                   choiceValues=c("all","english","spanish","other")),
+      # Discovery was space-based or land-based? `facility_type=1` if space-based.
+      radioButtons(inputId="subset_whereMade",
+                   label="Choose origin of discovery",
+                   choices=c("All", "Earth-based (observatories)", "Space-based (satellites)"),
+                   selected="All",
+      ),
       
-      # Options to select for SNAP Recipients
-      radioButtons("fs_corr","SNAP Recipient", choiceNames=c("All", "Yes", "No"),
-                   choiceValues=c("all","yes","no")),
+      # Discovery methods - 
+      # WOBBLES: Radial Velocity, Astrometry, Pulsar Timing, Transit Timing Variations (TTV), Disk Kinematics
+      # - based on reflex motion on star or neighboring bodies by the mass of the planet.
+      # FLASHES: Transit, Microlensing, Imaging, Eclipse Timing Variations, Orbital Brightness Modulation, Pulsation Timing Variations
+      # - measure changes in brightness to a star or an object behind it. Lead to measurement of a radius or a brightness property.
+      radioButtons(inputId="subset_discMethods",
+                   label="Methods of Discovery",
+                   choiceNames=c("All",
+                                 "by Wobbles (mass detection)",
+                                 "by Flashes (radius detection)"),
+                   choiceValues=c("all", "mass", "radius"),
+                   # Start with all options selected.
+                   selected="All"
+      ),
       
-      # Options to select for Educational Attainment
-      radioButtons("schl_corr","Educational attainment",
-                   choiceNames=c("All","High School not Completed", "High School or GED", "College Degree"),
-                   choiceValues=c("all", "no_hs", "hs", "college")),
+      # Distance in parsecs from SOL to this star system.
+      sliderInput(inputId="subset_distance",
+                  label="Distance away (in parsecs)",
+                  min=1,
+                  max=8500,
+                  value=c(1,8500),
+                  sep="",
+                  ticks=100
+      ),
       
-      h2("Select a Sample Size"),
-      sliderInput("corr_n", "", value=20, min=20, max=500),
+      hr(),
       actionButton("data_subset_action","Generate Subset")
     ),
     mainPanel(
@@ -75,7 +136,8 @@ ui <- fluidPage(
                    p("Use the input fields in the sidebar to the left to produce a subset of the data you wish to explore."),
                    p("This tab will allow you to visualize the raw data based on the subsetting indicated, and to download a .CSV file."),
                    DTOutput("downloadTable", width="50%"),
-                   downloadButton("rawdataDownload", "Download Subset")
+                   uiOutput("downloadUI")
+                   # downloadButton("rawdataDownload", "Download Subset", disabled=TRUE)
                  )
         ),
         
@@ -100,7 +162,18 @@ ui <- fluidPage(
                  # Account for errors that may pop up in the widget. Use loading spinners for plots
                  #    that may take a while to load.
                  mainPanel(
-                   h1("Here is for data exploration.")
+                   h1("Here is for data exploration."),
+                   p("Suggestions:"),
+                   p("1. Mass versus Radius. (Separate by discovery method?)"),
+                   p("2. Habitable zone diagrame - Seff versus stellar temperature? stellar size?"),
+                   p("3. Discovery counts by year, facet by method (flash vs wobble)?"),
+                   p("4. Orbital period versus size?"),
+                   p("5. Stellar metallicity (FE/H ratio of star) versus number of planets per star?"),
+                   p("6. Planet size distribution within the habitable zone?"),
+                   p("7. Eccentricity of planet versus its habitability? Or size? Or period?"),
+                   p("8. Planet Radius versus Stellar Age"),
+                   p("9. Planet Mass versus Density"),
+                   p("10. Size of planets versus distance to stars. I feel like this can also be grouped based on ... some other categorical variable.")
                  )
         )
       )
@@ -113,6 +186,9 @@ server <- function(input, output, session) {
   out <- reactiveVal(value=NULL)
   observeEvent(input$data_subset_action, {
     out(fullData)
+    output$downloadUI <- renderUI({
+      downloadButton("rawdataDownload", "Download Subset")
+    })
   })
   output$downloadTable <- renderDT(out())
   # Pressing the DOWNLOAD SUBSET button will download the subset data table contents to a file.
