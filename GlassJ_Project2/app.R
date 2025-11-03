@@ -20,20 +20,17 @@ library(DT)
 # The helpers.R file contains variable listings.
 source("helpers.R")
 
-# This theme would need some work.
+# This theme would need some work. The DTOutput is suddenly too narrow.
 dark_space_theme <- bs_theme(
-  # Set the dark mode background (a near-black dark blue)
   bg = "#151525", 
-  # Set the light foreground text color
   fg = "#F0F0FF", 
-  # Set an accent color for buttons/links (e.g., a nebula blue)
   primary = "#327ECF", 
-  base_font = font_google("Space Mono") # Optional: Use a space-themed font
+  base_font = font_google("Space Mono")
 )
 
 # Define the UI
 ui <- fluidPage(
-  # theme=dark_space_theme,
+  theme=dark_space_theme,
   title="Exoplanet Astronomy",
   titlePanel("Exploration of Exoplanets - Check it out"),
   sidebarLayout(
@@ -72,29 +69,28 @@ ui <- fluidPage(
                             "Super-Earth",  # 2M <= m < 10M
                             "Neptunian",    # 10M <= m < 50M
                             "Jovian"),      # 50M <= m
-                  selected="All"
+                  selected="All",
       ),
       
       # Discovery was space-based or land-based? `facility_type=1` if space-based.
       radioButtons(inputId="subset_whereMade",
                    label="Choose origin of discovery",
-                   choices=c("All", "Earth-based (observatories)", "Space-based (satellites)"),
-                   selected="All",
+                   choiceNames=c("All origins", "Earth-based (observatories)", "Space-based (satellites)"),
+                   choiceValues=c("all", "earth", "space"),
+                   selected="all",
+                   inline=FALSE
       ),
       
       # Discovery methods - 
-      # WOBBLES: Radial Velocity, Astrometry, Pulsar Timing, Transit Timing Variations (TTV), Disk Kinematics
-      # - based on reflex motion on star or neighboring bodies by the mass of the planet.
-      # FLASHES: Transit, Microlensing, Imaging, Eclipse Timing Variations, Orbital Brightness Modulation, Pulsation Timing Variations
-      # - measure changes in brightness to a star or an object behind it. Lead to measurement of a radius or a brightness property.
       radioButtons(inputId="subset_discMethods",
                    label="Methods of Discovery",
-                   choiceNames=c("All",
+                   choiceNames=c("All methods",
                                  "by Wobbles (mass detection)",
                                  "by Flashes (radius detection)"),
                    choiceValues=c("all", "mass", "radius"),
                    # Start with all options selected.
-                   selected="All"
+                   selected="all",
+                   inline=FALSE
       ),
       
       # Distance in parsecs from SOL to this star system.
@@ -126,18 +122,14 @@ ui <- fluidPage(
         ),
         
         tabPanel("Data Download",
-                 
-                 # Display data using DT::dataTableOutput() with DT::renderDataTable()
-                 # Data should be subsetted when the user selects a subset in sidebar and presses the Go button
-                 # Save the subsetted* data as a file, use a download() button
-                 
+                 # Display the subsetted data. Does not appear until the "Generate Subset" button is pressed.
                  mainPanel(
                    h2("Raw Data Subset"),
                    p("Use the input fields in the sidebar to the left to produce a subset of the data you wish to explore."),
                    p("This tab will allow you to visualize the raw data based on the subsetting indicated, and to download a .CSV file."),
-                   DTOutput("downloadTable", width="50%"),
-                   uiOutput("downloadUI")
-                   # downloadButton("rawdataDownload", "Download Subset", disabled=TRUE)
+                   DTOutput("downloadTable", width="150%"),
+                   uiOutput("downloadUI"),
+                   br()
                  )
         ),
         
@@ -185,17 +177,54 @@ ui <- fluidPage(
 server <- function(input, output, session) { 
   out <- reactiveVal(value=NULL)
   observeEvent(input$data_subset_action, {
-    out(fullData)
+    # Generate Filtered Set based on the subset information from sidebar.
+    filtered_set <- fullData %>% # Use tidyverse piping for the functioning.
+      
+      # Filter for years of discovery
+      filter(disc_year >= input$subset_discYear[1] & disc_year <= input$subset_discYear[2]) %>%
+      
+      # Filter by Distance from Sol to this star system
+      filter(sy_dist >= input$subset_distance[1] & sy_dist <= input$subset_distance[2]) %>%
+      
+      # Filter for whether it is within the habitable zone
+      {if (input$subset_habitable == "Yes") filter(., pl_insol >= 0.32 & pl_insol <= 1.77)
+        else if (input$subset_habitable == "No") filter(., pl_insol < 0.32 | pl_insol > 1.77)
+        else .} %>%
+      
+      # Filter for planet size
+      {if (input$subset_planetSize == "Terrestrial") filter(., pl_bmasse < 2)
+        else if (input$subset_planetSize == "Super-Earth") filter(., pl_bmasse > 2 & pl_bmasse < 10)
+        else if (input$subset_planetSize == "Neptunian") filter(., pl_bmasse > 10 & pl_bmasse < 50)
+        else if (input$subset_planetSize == "Jovian") filter(., pl_bmasse > 50)
+        else .} %>%
+      
+      # Filter for whether satellite is land or space based
+      {if (input$subset_whereMade == "earth") filter(., facility_type == 1)
+        else if (input$subset_whereMade == "space") filter(., facility_type != 1)
+        else .} %>%
+      
+      # Filter by Discovery Methods.
+      {if (input$subset_discMethods == "mass") filter(., discoverymethod %in% c("Radial Velocity", "Astrometry", "Pulsar Timing", 
+                                                                              "Transit Timing Variations", "Disk Kinematics"))
+        else if (input$subset_discMethods == "radius") filter(., discoverymethod %in% c("Transit", "Microlensing", "Imaging", 
+                                                                                     "Eclipse Timing Variations", "Orbital Brightness Modulation", 
+                                                                                     "Pulsation Timing Variations"))
+        else . }
+
+    out(filtered_set)
     output$downloadUI <- renderUI({
       downloadButton("rawdataDownload", "Download Subset")
     })
   })
-  output$downloadTable <- renderDT(out())
+  output$downloadTable <- renderDT({
+    out()
+  })
   # Pressing the DOWNLOAD SUBSET button will download the subset data table contents to a file.
   output$rawdataDownload <- downloadHandler(
     filename = function() { paste("exoplanet_", Sys.Date(), ".csv", sep="") },
     content = function(file) { write.csv(out(), file) }
   )
+  
 }
 
 # Run the application 
