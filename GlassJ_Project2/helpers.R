@@ -1,8 +1,3 @@
-# Full exoplanet data set, using only the defined Numeric and Character variables below.
-fullData <- read.csv("exoplanetsdata.csv", header=TRUE) |>
-  mutate(across(c(pl_name, hostname, disc_facility), factor)) |>
-  select(all_of(char_vars), all_of(numeric_vars))
-
 numeric_vars <- c(
   "facility_type",    # 
   "pl_controv_flag",  # lag indicating whether the confirmation status of a planet has been questioned in the published literature (1=yes, 0=no)
@@ -41,3 +36,7 @@ char_vars <- c(
   "rastr",            # Right Ascension of the planetary system in sexagesimal format
   "decstr"            # Declination of the planetary system in sexagesimal notation
 )
+# Full exoplanet data set, using only the defined Numeric and Character variables below.
+fullData <- read.csv("exoplanetsdata.csv", header=TRUE) |>
+  mutate(across(c(pl_name, hostname, disc_facility), factor)) |>
+  select(all_of(char_vars), all_of(numeric_vars))

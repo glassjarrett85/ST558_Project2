@@ -12,25 +12,20 @@ library(tidyverse)
 library(bslib)
 library(DT)
 
+source("helpers.R")
+
 # Details of the columns:
 # https://exoplanetarchive.ipac.caltech.edu/docs/API_PS_columns.html
 
-# To start: I just copied text in directly from our last homework assignemnt, and I can tweak from here.
-
-# The helpers.R file contains variable listings.
-source("helpers.R")
-
-# This theme would need some work. The DTOutput is suddenly too narrow.
-dark_space_theme <- bs_theme(
-  bg = "#151525", 
-  fg = "#F0F0FF", 
-  primary = "#327ECF", 
-  base_font = font_google("Space Mono")
-)
-
 # Define the UI
 ui <- fluidPage(
-  theme=dark_space_theme,
+  # Add a spacey theme.
+  theme=bs_theme(
+    bg = "#151525",
+    fg = "#F0F0FF",
+    primary = "#327ECF",
+    base_font = font_google("Space Mono")
+  ),
   title="Exoplanet Astronomy",
   titlePanel("Exploration of Exoplanets - Check it out"),
   sidebarLayout(
@@ -155,17 +150,62 @@ ui <- fluidPage(
                  #    that may take a while to load.
                  mainPanel(
                    h1("Here is for data exploration."),
-                   p("Suggestions:"),
-                   p("1. Mass versus Radius. (Separate by discovery method?)"),
-                   p("2. Habitable zone diagrame - Seff versus stellar temperature? stellar size?"),
-                   p("3. Discovery counts by year, facet by method (flash vs wobble)?"),
-                   p("4. Orbital period versus size?"),
-                   p("5. Stellar metallicity (FE/H ratio of star) versus number of planets per star?"),
-                   p("6. Planet size distribution within the habitable zone?"),
-                   p("7. Eccentricity of planet versus its habitability? Or size? Or period?"),
-                   p("8. Planet Radius versus Stellar Age"),
-                   p("9. Planet Mass versus Density"),
-                   p("10. Size of planets versus distance to stars. I feel like this can also be grouped based on ... some other categorical variable.")
+                   layout_column_wrap(width=1/2,
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Mass versus Radius"),
+                                        p("Show the mass versus radius graph")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Habitable Zone Diagram, S_eff versus Stellar Temp"),
+                                        p("Show this graph")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Discovery Counts by Year and Discovery Method"),
+                                        p("Shwo this graph")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Orbital Period versus Size of Planet"),
+                                        p("Show this graph too")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Stellar Metallicity versus numebr of planets?"),
+                                        p("Shwo this one now too.")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Size of planets within habitable zone?"),
+                                        p("Do itttt.")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Planet Radius versus the age of the star?"),
+                                        p("I don't know abotu this one.")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Planet Mass versus its density. Do I have density?"),
+                                        p("I'll have to check")
+                                      ),
+                                      card(
+                                        class="border-5 shadow-lg",
+                                        full_screen = TRUE,
+                                        card_header("Size of a planet and its distance to star."),
+                                        p("This one will be good")
+                                      )
+                   )
                  )
         )
       )
@@ -205,12 +245,12 @@ server <- function(input, output, session) {
       
       # Filter by Discovery Methods.
       {if (input$subset_discMethods == "mass") filter(., discoverymethod %in% c("Radial Velocity", "Astrometry", "Pulsar Timing", 
-                                                                              "Transit Timing Variations", "Disk Kinematics"))
+                                                                                "Transit Timing Variations", "Disk Kinematics"))
         else if (input$subset_discMethods == "radius") filter(., discoverymethod %in% c("Transit", "Microlensing", "Imaging", 
-                                                                                     "Eclipse Timing Variations", "Orbital Brightness Modulation", 
-                                                                                     "Pulsation Timing Variations"))
+                                                                                        "Eclipse Timing Variations", "Orbital Brightness Modulation", 
+                                                                                        "Pulsation Timing Variations"))
         else . }
-
+    
     out(filtered_set)
     output$downloadUI <- renderUI({
       downloadButton("rawdataDownload", "Download Subset")
