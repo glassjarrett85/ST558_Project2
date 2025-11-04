@@ -37,6 +37,12 @@ char_vars <- c(
   "decstr"            # Declination of the planetary system in sexagesimal notation
 )
 # Full exoplanet data set, using only the defined Numeric and Character variables below.
+wobbles <- c("Radial Velocity", "Astrometry", "Pulsar Timing", 
+             "Transit Timing Variations", "Disk Kinematics")
 fullData <- read.csv("exoplanetsdata.csv", header=TRUE) |>
-  mutate(across(c(pl_name, hostname, disc_facility), factor)) |>
-  select(all_of(char_vars), all_of(numeric_vars))
+  select(all_of(char_vars), all_of(numeric_vars)) |>
+  mutate(habitable = ifelse(between(pl_insol, 0.32, 1.77), "Yes", "No"),
+         planetSize = case_when(pl_bmasse > 50 ~ "Jovian", pl_bmasse > 10 ~ "Neptunian", pl_bmasse > 2 ~ "Super-Earth", TRUE ~ "Terrestrial"),
+         based = ifelse(facility_type != 1 | is.na(facility_type), "earth", "space"),
+         methods = ifelse(discoverymethod %in% wobbles, "mass", "radius"),
+         across(c(pl_name, hostname, disc_facility), factor))

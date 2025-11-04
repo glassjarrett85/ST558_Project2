@@ -155,55 +155,43 @@ ui <- fluidPage(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
                                         card_header("Mass versus Radius"),
-                                        p("Show the mass versus radius graph")
+                                        plotOutput(outputId="graph_1"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
                                         card_header("Habitable Zone Diagram, S_eff versus Stellar Temp"),
-                                        p("Show this graph")
+                                        plotOutput(outputId="graph_2"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
                                         card_header("Discovery Counts by Year and Discovery Method"),
-                                        p("Shwo this graph")
+                                        plotOutput(outputId="graph_3"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Orbital Period versus Size of Planet"),
-                                        p("Show this graph too")
+                                        card_header("Metal Content versus Brightness (Grouped by discovery method)"),
+                                        plotOutput(outputId="graph_4"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
                                         card_header("Stellar Metallicity versus numebr of planets?"),
-                                        p("Shwo this one now too.")
+                                        plotOutput(outputId="graph_5"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
                                         card_header("Size of planets within habitable zone?"),
-                                        p("Do itttt.")
+                                        plotOutput(outputId="6"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Planet Radius versus the age of the star?"),
-                                        p("I don't know abotu this one.")
-                                      ),
-                                      card(
-                                        class="border-5 shadow-lg",
-                                        full_screen = TRUE,
-                                        card_header("Planet Mass versus its density. Do I have density?"),
-                                        p("I'll have to check")
-                                      ),
-                                      card(
-                                        class="border-5 shadow-lg",
-                                        full_screen = TRUE,
-                                        card_header("Size of a planet and its distance to star."),
-                                        p("This one will be good")
+                                        card_header("Size of a planet and its orbital period."),
+                                        plotOutput(outputId="graph_9")
                                       )
                    )
                  )
@@ -218,38 +206,13 @@ server <- function(input, output, session) {
   out <- reactiveVal(value=NULL)
   observeEvent(input$data_subset_action, {
     # Generate Filtered Set based on the subset information from sidebar.
-    filtered_set <- fullData %>% # Use tidyverse piping for the functioning.
-      
-      # Filter for years of discovery
-      filter(disc_year >= input$subset_discYear[1] & disc_year <= input$subset_discYear[2]) %>%
-      
-      # Filter by Distance from Sol to this star system
-      filter(sy_dist >= input$subset_distance[1] & sy_dist <= input$subset_distance[2]) %>%
-      
-      # Filter for whether it is within the habitable zone
-      {if (input$subset_habitable == "Yes") filter(., pl_insol >= 0.32 & pl_insol <= 1.77)
-        else if (input$subset_habitable == "No") filter(., pl_insol < 0.32 | pl_insol > 1.77)
-        else .} %>%
-      
-      # Filter for planet size
-      {if (input$subset_planetSize == "Terrestrial") filter(., pl_bmasse < 2)
-        else if (input$subset_planetSize == "Super-Earth") filter(., pl_bmasse > 2 & pl_bmasse < 10)
-        else if (input$subset_planetSize == "Neptunian") filter(., pl_bmasse > 10 & pl_bmasse < 50)
-        else if (input$subset_planetSize == "Jovian") filter(., pl_bmasse > 50)
-        else .} %>%
-      
-      # Filter for whether satellite is land or space based
-      {if (input$subset_whereMade == "earth") filter(., facility_type == 1)
-        else if (input$subset_whereMade == "space") filter(., facility_type != 1)
-        else .} %>%
-      
-      # Filter by Discovery Methods.
-      {if (input$subset_discMethods == "mass") filter(., discoverymethod %in% c("Radial Velocity", "Astrometry", "Pulsar Timing", 
-                                                                                "Transit Timing Variations", "Disk Kinematics"))
-        else if (input$subset_discMethods == "radius") filter(., discoverymethod %in% c("Transit", "Microlensing", "Imaging", 
-                                                                                        "Eclipse Timing Variations", "Orbital Brightness Modulation", 
-                                                                                        "Pulsation Timing Variations"))
-        else . }
+    filtered_set <- fullData %>% 
+      filter(disc_year >= input$subset_discYear[1] & disc_year <= input$subset_discYear[2]) %>%               # Filter years of discovery
+      filter(sy_dist >= input$subset_distance[1] & sy_dist <= input$subset_distance[2]) %>%                   # Filter by Distance from Sol to this star system
+      {if (input$subset_habitable != "All") filter(., habitable == input$subset_habitable) else .} %>%        # Filter for whether it is within the habitable zone
+      {if (input$subset_planetSize != "All") filter(., planetSize == input$subset_planetSize) else .} %>%     # Filter for planet size
+      {if (input$subset_whereMade != "all") filter(., based == input$subset_whereMade) else .} %>%            # Land or space-based discovery
+      {if (input$subset_discMethods != "all") filter(., methods == input$subset_discMethods) else .}          # Discovery methods - whether by mass or by radius
     
     out(filtered_set)
     output$downloadUI <- renderUI({
@@ -265,6 +228,59 @@ server <- function(input, output, session) {
     content = function(file) { write.csv(out(), file) }
   )
   
+  # Add the plots for each Card.
+  
+  #   card_header("Planet Mass versus Planet Radius"),
+  #   plotOutput(outputId="graph_1"),
+  output$graph_1 <- renderPlot({
+    ggplot(data=out(), aes(x=pl_bmasse, y=pl_rade)) +
+      geom_point()
+  })
+  
+  #   card_header("Habitable Zone Diagram, S_eff versus Stellar Temp"),
+  #   plotOutput(outputId="graph_2"),
+  output$graph_2 <- renderPlot({
+    ggplot(data=out(), aes(x=pl_insol, y=st_teff, color=habitable)) +
+      geom_point()
+  })
+  
+  #   card_header("Discovery Counts by Year and Discovery Method"),
+  #   plotOutput(outputId="graph_3"),
+  #   Maybe this one would be good as a heat map?
+  output$graph_3 <- renderPlot({
+    ggplot(data=out(), aes(x=disc_year, color=discoverymethod)) +
+      geom_histogram()
+  })
+
+  #   card_header("Host Star Metal Content versus Brightness (Grouped by discovery method)"),
+  #   plotOutput(outputId="graph_4"),
+  output$graph_4 <- renderPlot({
+    ggplot(data=out(), aes(x=st_met, y=sy_gaiamag, group=methods)) +
+      geom_point()
+  })
+  
+  #   card_header("Stellar Metallicity versus number of planets?"),
+  #   plotOutput(outputId="graph_5"),
+  output$graph_5 <- renderPlot({
+    ggplot(data=out() |> group_by(hostname) |> summarize(n=n(), metallicity=mean(st_met)),
+           aes(x=metallicity, y=n)) +
+      geom_point()
+  })
+  
+  #   card_header("Size of planets within habitable zone?"),
+  #   plotOutput(outputId="6"),
+  output$graph_6 <- renderPlot({
+    ggplot(data=out() |> filter(habitable=="Yes"),
+           aes(x=st_met, y=sy_gaiamag, group=methods)) +
+      geom_point()
+  })
+  
+  #   card_header("Size of a planet and its orbital period."),
+  #   plotOutput(outputId="graph_9")
+  output$graph_9 <- renderPlot({
+    ggplot(data=out(), aes(x=pl_rade, y=pl_orbper)) +
+      geom_point()
+  })
 }
 
 # Run the application 
