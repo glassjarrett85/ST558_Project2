@@ -150,49 +150,37 @@ ui <- fluidPage(
                  #    that may take a while to load.
                  mainPanel(
                    h1("Here is for data exploration."),
-                   layout_column_wrap(width=1/2,
+                   layout_column_wrap(width=1,
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Mass versus Radius"),
                                         plotOutput(outputId="graph_1"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Habitable Zone Diagram, S_eff versus Stellar Temp"),
                                         plotOutput(outputId="graph_2"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Discovery Counts by Year and Discovery Method"),
                                         plotOutput(outputId="graph_3"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Metal Content versus Brightness (Grouped by discovery method)"),
                                         plotOutput(outputId="graph_4"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Stellar Metallicity versus numebr of planets?"),
-                                        plotOutput(outputId="graph_5"),
+                                        DTOutput(outputId="graph_5"),
                                       ),
                                       card(
                                         class="border-5 shadow-lg",
                                         full_screen = TRUE,
-                                        card_header("Size of planets within habitable zone?"),
-                                        plotOutput(outputId="6"),
+                                        plotOutput(outputId="graph_6"),
                                       ),
-                                      card(
-                                        class="border-5 shadow-lg",
-                                        full_screen = TRUE,
-                                        card_header("Size of a planet and its orbital period."),
-                                        plotOutput(outputId="graph_9")
-                                      )
                    )
                  )
         )
@@ -233,53 +221,82 @@ server <- function(input, output, session) {
   #   card_header("Planet Mass versus Planet Radius"),
   #   plotOutput(outputId="graph_1"),
   output$graph_1 <- renderPlot({
-    ggplot(data=out(), aes(x=pl_bmasse, y=pl_rade)) +
-      geom_point()
+    req(out())
+    ggplot(data=out(), aes(x=pl_bmasse, y=pl_rade, color=planetSize)) +
+      geom_point(na.rm=TRUE) + 
+      scale_x_log10() +
+      lims(y=c(0, 4)) +
+      labs(title="Planet Mass versus Radius",
+           x="Planetary mass (log scaled, as multiple of Earth's mass)",
+           y="Radius of the planet (as multiple of Earth's radius)",
+           color="Planet type")
   })
   
   #   card_header("Habitable Zone Diagram, S_eff versus Stellar Temp"),
   #   plotOutput(outputId="graph_2"),
   output$graph_2 <- renderPlot({
-    ggplot(data=out(), aes(x=pl_insol, y=st_teff, color=habitable)) +
-      geom_point()
+    req(out())
+    ggplot(data=out(), aes(x=st_rad, y=st_logg, color=st_teff)) +
+      geom_point(na.rm=TRUE) +
+      labs(title="Stellar Brightness versus Temperature",
+           x="Stellar Radius (as a multiple of radius of Sol)",
+           y="Stellar surface Gravitational acceleration",
+           color="Steller Temperature (K)")
   })
   
   #   card_header("Discovery Counts by Year and Discovery Method"),
   #   plotOutput(outputId="graph_3"),
   #   Maybe this one would be good as a heat map?
   output$graph_3 <- renderPlot({
-    ggplot(data=out(), aes(x=disc_year, color=discoverymethod)) +
-      geom_histogram()
+    req(out())
+    ggplot(data=out(), aes(x=disc_year, fill=methods)) +
+      geom_bar() +
+      scale_y_log10() +
+      labs(title="Discovery by year and method",
+           x="Year of discovery",
+           y="Number of Planets (Log-10)",
+           fill="Discovery Method")
   })
 
-  #   card_header("Host Star Metal Content versus Brightness (Grouped by discovery method)"),
+  #   card_header("Host Star Metal Content versus Brightness (by Size)"),
   #   plotOutput(outputId="graph_4"),
   output$graph_4 <- renderPlot({
-    ggplot(data=out(), aes(x=st_met, y=sy_gaiamag, group=methods)) +
-      geom_point()
+    req(out())
+    ggplot(data=out(), aes(x=st_met, y=sy_gaiamag, color=st_rad)) +
+      geom_point(na.rm=TRUE) +
+      labs(title="Host Star Metal Content by Brightness",
+           x="Metallicity of Star",
+           y="Brightness (Gaia bands of magnitude)",
+           color="Radius (sols)")
   })
   
   #   card_header("Stellar Metallicity versus number of planets?"),
   #   plotOutput(outputId="graph_5"),
-  output$graph_5 <- renderPlot({
-    ggplot(data=out() |> group_by(hostname) |> summarize(n=n(), metallicity=mean(st_met)),
-           aes(x=metallicity, y=n)) +
-      geom_point()
+  output$graph_5 <- renderDT({
+    req(out())
+    con <- ftable(janitor::tabyl(
+      out(),
+      planetSize,
+      discoverymethod,
+      orbits
+    ))
+    DT::datatable(as.data.frame(con),
+                  options=list(paging=FALSE, searching=FALSE, dom='t', scrollX=TRUE),
+                  caption="3-Way Contingency Table"
+    )
   })
   
-  #   card_header("Size of planets within habitable zone?"),
+  #   card_header("Planet Metallicity and Brightness"),
   #   plotOutput(outputId="6"),
   output$graph_6 <- renderPlot({
+    req(out())
     ggplot(data=out() |> filter(habitable=="Yes"),
-           aes(x=st_met, y=sy_gaiamag, group=methods)) +
-      geom_point()
-  })
-  
-  #   card_header("Size of a planet and its orbital period."),
-  #   plotOutput(outputId="graph_9")
-  output$graph_9 <- renderPlot({
-    ggplot(data=out(), aes(x=pl_rade, y=pl_orbper)) +
-      geom_point()
+           aes(x=st_met, y=sy_gaiamag, color=methods)) +
+      geom_point() +
+      labs(title="Stellar Metallicity and Brightness",
+           x="Stellar Metallicity",
+           y="Stellar Brightness",
+           color="Discovery Method")
   })
 }
 

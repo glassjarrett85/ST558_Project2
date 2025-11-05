@@ -42,7 +42,8 @@ wobbles <- c("Radial Velocity", "Astrometry", "Pulsar Timing",
 fullData <- read.csv("exoplanetsdata.csv", header=TRUE) |>
   select(all_of(char_vars), all_of(numeric_vars)) |>
   mutate(habitable = ifelse(between(pl_insol, 0.32, 1.77), "Yes", "No"),
-         planetSize = case_when(pl_bmasse > 50 ~ "Jovian", pl_bmasse > 10 ~ "Neptunian", pl_bmasse > 2 ~ "Super-Earth", TRUE ~ "Terrestrial"),
+         planetSize = cut(pl_bmasse, breaks=c(0, 2, 10, 50, Inf), labels=c("Terrestrial", "Super-Earth", "Neptunian", "Jovian")),
          based = ifelse(facility_type != 1 | is.na(facility_type), "earth", "space"),
          methods = ifelse(discoverymethod %in% wobbles, "mass", "radius"),
-         across(c(pl_name, hostname, disc_facility), factor))
+         orbits = cut(pl_orbper, breaks=quantile(pl_orbper, probs=c(0, 0.33, 0.66, 1), na.rm=TRUE), labels=c("Small", "Medium", "Large")),
+         across(c(pl_name, hostname, disc_facility, planetSize, based, methods, discoverymethod), factor))
